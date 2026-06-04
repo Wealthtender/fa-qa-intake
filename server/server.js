@@ -14,9 +14,11 @@ const {
   AIRTABLE_API_KEY,
   AIRTABLE_BASE_ID,
   AIRTABLE_ARTICLES_TABLE = "Articles",
-  ZAPIER_WEBHOOK_URL,
+  AIRTABLE_SUBMISSIONS_TABLE = "Submissions",
   PORT = 3000,
 } = process.env;
+
+const AIRTABLE_API = "https://api.airtable.com/v0";
 
 /* ----------------------------------------------------------
    /api/claude — proxies the Anthropic Messages API so the
@@ -69,7 +71,7 @@ app.get("/api/config", async (req, res) => {
   if (!id || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) return res.json(DEFAULT_CONFIG);
   try {
     const formula = encodeURIComponent(`{Article ID}='${id}'`);
-    const url = `https://api.airtable.com/v0/${AIRTABLE_BASE_ID}/${encodeURIComponent(
+    const url = `${AIRTABLE_API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(
       AIRTABLE_ARTICLES_TABLE
     )}?filterByFormula=${formula}&maxRecords=1`;
     const r = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` } });
@@ -101,26 +103,95 @@ app.get("/api/config", async (req, res) => {
 });
 
 /* ----------------------------------------------------------
-   /api/submit — forwards the completed submission to the
-   Zapier webhook that kicks off the editorial pipeline.
-   If no webhook is configured, it just logs (so the app is
-   fully usable before the pipeline is built).
+   /api/submit — writes the completed submission directly into
+   the Airtable "Submissions" table. A new record there is the
+   trigger that kicks off the editorial pipeline (Asana task,
+   review, etc.) via the existing Airtable-triggered Zap.
+   If Airtable isn't configured or the write fails, the full
+   payload is logged so an advisor's work is never lost.
 ---------------------------------------------------------- */
-app.post("/api/submit", async (req, res) => {
+
+// Pull every URL out of the payload so the reviewer can eyeball
+// advisor-supplied links at a glance.
+function extractLinks(payload) {
+  const blob = JSON.stringify(payload || {});
+  const urls = new Set();
+  const re = /https?:\/\/[^\s"'<>\\]+/g;
+  let m;
+  while ((m = re.exec(blob))) urls.add(m[0]);
+  return [...urls];
+}
+
+// Resolve the Articles record so the submission can be linked to it.
+async function findArticleRecordId(articleId) {
+  if (!articleId || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) return null;
   try {
-    if (ZAPIER_WEBHOOK_URL) {
-      await fetch(ZAPIER_WEBHOOK_URL, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(req.body),
-      });
-    } else {
-      console.log("Submission received (no ZAPIER_WEBHOOK_URL set):", JSON.stringify(req.body).slice(0, 1000));
+    const formula = encodeURIComponent(`{Article ID}='${articleId}'`);
+    const url = `${AIRTABLE_API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(
+      AIRTABLE_ARTICLES_TABLE
+    )}?filterByFormula=${formula}&maxRecords=1`;
+    const r = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` } });
+    const data = await r.json();
+    return (data.records && data.records[0] && data.records[0].id) || null;
+  } catch {
+    return null;
+  }
+}
+
+app.post("/api/submit", async (req, res) => {
+  const payload = req.body || {};
+  const {
+    articleId = "",
+    series = "",
+    entity = "",
+    complianceDisclosure = "",
+    readyForPublication = false,
+    submittedAt = new Date().toISOString(),
+  } = payload;
+
+  // No Airtable configured — don't lose the submission; log and ack.
+  if (!AIRTABLE_API_KEY || !AIRTABLE_BASE_ID) {
+    console.log("Submission received (Airtable not configured):", JSON.stringify(payload).slice(0, 2000));
+    return res.json({ ok: true, stored: "log" });
+  }
+
+  try {
+    const articleRecId = await findArticleRecordId(articleId);
+    const fields = {
+      "Submission Ref": `${articleId || "unknown"} \u2014 ${submittedAt}`,
+      "Article ID": articleId,
+      "Series": series,
+      "Entity": entity,
+      "Submitted At": submittedAt,
+      "Raw Q&A (JSON)": JSON.stringify(payload, null, 2),
+      "External Links": extractLinks(payload).join("\n"),
+      "Compliance Disclosure": complianceDisclosure,
+      "Ready For Publication": !!readyForPublication,
+      "Status": "Submitted",
+    };
+    if (articleRecId) fields["Article"] = [articleRecId];
+
+    const url = `${AIRTABLE_API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_SUBMISSIONS_TABLE)}`;
+    const r = await fetch(url, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${AIRTABLE_API_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ fields, typecast: true }),
+    });
+
+    if (!r.ok) {
+      const errText = await r.text();
+      console.error("airtable submit failed", r.status, errText, "PAYLOAD:", JSON.stringify(payload));
+      return res.json({ ok: true, stored: "log" }); // ack so the advisor isn't blocked; payload is in logs
     }
-    res.json({ ok: true });
+
+    const data = await r.json();
+    res.json({ ok: true, stored: "airtable", id: data.id });
   } catch (e) {
-    console.error("submit error", e);
-    res.status(500).json({ error: "submit_failed" });
+    console.error("submit error", e, "PAYLOAD:", JSON.stringify(req.body));
+    res.json({ ok: true, stored: "log" });
   }
 });
 
