@@ -686,17 +686,19 @@ async function generateArticle(recordId) {
     return;
   }
 
-  let headline, slug, audienceLabel, cardEyebrow;
+  let headline, slug, audienceLabel, cardEyebrow, seoTitle;
   if (isEmployer) {
     const nounAmp = titleCase(audienceNoun).replace(/\bAnd\b/g, "&");
     const shortTitle = titleCase(audienceShort);
     headline = `Find Financial Advisors for ${entity} ${nounAmp}: Q&A Insights from the Experts`;
     slug = `financial-advisor-for-${slugify(entity)}-employees`;
+    seoTitle = `Find a Financial Advisor for ${entity} ${shortTitle} | Wealthtender`;
     audienceLabel = `${entity} ${shortTitle}`;
     cardEyebrow = `Financial Advisor Q&amp;A &nbsp;&middot;&nbsp; ${cardText(entity)} ${cardText(shortTitle)}`;
   } else {
     headline = `Find a Financial Advisor for ${entity}: Q&A Insights from the Experts`;
     slug = `financial-advisor-for-${slugify(entity)}`;
+    seoTitle = `Financial Advisor for ${entity} | Wealthtender`;
     audienceLabel = entity;
     cardEyebrow = `Financial Advisor Q&amp;A &nbsp;&middot;&nbsp; ${cardText(entity)}`;
   }
@@ -723,6 +725,7 @@ async function generateArticle(recordId) {
     if (!profile.tagline) genFlags.push("Specialty tagline not found \u2014 consider adding one.");
     if (!profile.bio) genFlags.push("Bio strip omitted (no About paragraph parsed) \u2014 consider adding the advisor bio.");
   }
+  if (seoTitle && seoTitle.length > 60) genFlags.push(`SEO Title is ${seoTitle.length} chars (target ~60) \u2014 consider shortening before publishing.`);
   const prevFlags = f["Flags Raised"] || "";
   const flagsOut = genFlags.length
     ? (prevFlags ? prevFlags + "\n\n" : "") + "\u2014 Generation \u2014\n" + genFlags.map((x) => "\u2022 " + x).join("\n")
@@ -731,6 +734,7 @@ async function generateArticle(recordId) {
   await safePatch(SUB, recordId, {
     "Generated HTML": generatedHtml.slice(0, 95000),
     "Suggested Headline": headline,
+    "SEO Title": seoTitle,
     "Meta Description": (ai.metaDescription || "").trim(),
     "Suggested Slug": slug,
     "Flags Raised": flagsOut.slice(0, 95000),
