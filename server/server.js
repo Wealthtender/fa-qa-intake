@@ -755,6 +755,195 @@ app.post("/api/generate", async (req, res) => {
 /* ----------------------------------------------------------
    Serve the built React app and let client-side routing work.
 ---------------------------------------------------------- */
+/* ----------------------------------------------------------
+   /api/article-setup — one-field article provisioning.
+   A HubSpot dropdown creates an Articles row (Series + advisor
+   fields, Status = "Needs Name"). Brian types the Employer /
+   Niche Name and checks "Generate Setup". Zapier POSTs
+   { recordId }; we derive the audience noun/short, build the
+   Article ID, generate the Question List (employer: 12 standard
+   + 2 bespoke; specialist: drafted), write Setup Notes, set
+   Status = "Ready to Invite", and uncheck "Generate Setup".
+---------------------------------------------------------- */
+const STANDARD_EMPLOYER_QUESTIONS = [
+  "As a financial advisor with experience helping COMPANY employees save for their retirement, how do you help them make the most of their employee benefits?",
+  "When you first speak with a COMPANY employee, what questions do you like to ask to better understand their unique circumstances and determine how you can best help them achieve their goals?",
+  "Is there a particular benefit available to COMPANY employees you feel isn't as well utilized or understood by employees as it should be?",
+  "Beyond COMPANY employee benefits for retirement savings, are there other types of benefits offered by the company that you find valuable to discuss with your clients (e.g. stock, education savings, health savings)?",
+  "For COMPANY employees thinking about leaving the company to accept a job elsewhere, what actions do you recommend they take before resigning and shortly thereafter?",
+  "For COMPANY employees approaching retirement age, how do you recommend they prepare to make the transition from living off their salary to relying upon other sources of income?",
+  "For COMPANY employees who have managed their finances on their own to this point, what would you suggest they consider to help them decide if they should begin working with a financial advisor at this stage in their lives?",
+  "What are some of the unique financial planning challenges you commonly see among your clients who are COMPANY employees and how do you help them overcome these obstacles?",
+  "What questions do you recommend COMPANY employees ask financial advisors they're considering hiring to help them decide if they're a good fit?",
+  "Is there anything that comes up frequently in your initial meeting with COMPANY employees that surprises you?",
+  "For highly compensated COMPANY employees and executives, are there any special benefits you believe it's important to take into consideration when preparing their financial plan?",
+  "Is there a particularly memorable experience or a moment you recall with a client who worked at COMPANY when you realized they have unique opportunities and circumstances when it comes to their financial planning needs?",
+];
+
+const SETUP_EMPLOYER_SYSTEM = `You are an editorial strategist for Wealthtender's Large Employer Q&A series. Given an employer name, classify the employer and return audience framing plus two employer-specific Q&A questions.
+
+Return ONLY valid JSON (no markdown) in EXACTLY this schema:
+{
+  "category": "corporate | healthcare | university | government_pension | military | first_responders | other",
+  "audienceNoun": "<lowercase plural phrase>",
+  "audienceShort": "<lowercase plural phrase>",
+  "ampExecutives": <true|false>,
+  "rationale": "<one sentence on the category call and whether '& Executives' applies>",
+  "bespokeQuestions": ["<question 1>", "<question 2>"]
+}
+
+Audience mapping by category (use EXACTLY these values):
+- corporate: audienceNoun "employees and executives", audienceShort "employees", ampExecutives true
+- healthcare: audienceNoun "employees", audienceShort "employees", ampExecutives false
+- university: audienceNoun "faculty and staff", audienceShort "employees", ampExecutives false
+- government_pension: audienceNoun "members", audienceShort "members", ampExecutives false
+- military: audienceNoun "service members", audienceShort "service members", ampExecutives false
+- first_responders: audienceNoun "first responders", audienceShort "first responders", ampExecutives false
+- other: audienceNoun "employees", audienceShort "employees", ampExecutives false
+
+Rules for bespokeQuestions:
+- Exactly 2 questions, each open-ended and in the same voice as a professional advisor interview, each naming the employer.
+- They MUST be distinct from these standard topics already covered: making the most of benefits; discovery questions; an under-utilized benefit; non-retirement benefits (stock/education/health savings); leaving the company; approaching retirement; deciding to hire an advisor; common planning challenges; questions to ask an advisor; first-meeting surprises; highly compensated employees and executives; a memorable client moment.
+- Focus on what is genuinely DISTINCTIVE about THIS employer (e.g. equity/RSUs/pre-IPO liquidity, pension specifics, mission-driven or relocation-heavy culture, unusual compensation structures). Keep each question to one or two sentences.`;
+
+const SETUP_SPECIALIST_SYSTEM = `You are an editorial strategist for Wealthtender's Specialist Spotlight Q&A series. Given a niche audience, return audience framing plus query-shaped Q&A questions an advisor who SPECIALIZES IN SERVING that niche would answer.
+
+Return ONLY valid JSON (no markdown) in EXACTLY this schema:
+{
+  "audienceNoun": "<the niche as a plural audience phrase, Title Case, e.g. 'Cross-Border Canadians'>",
+  "audienceShort": "<a short plural label, Title Case>",
+  "questions": ["<8 to 12 questions>"]
+}
+
+Rules:
+- Frame the niche as people an advisor specializes in serving, never as a credential the advisor holds.
+- Questions are query-shaped (the way someone asks AI or search), specific to the real financial challenges of this niche, open-ended, and answerable by an advisor. Provide 8 to 12.
+- No current-year dollar figures or contribution limits in the questions (keep them evergreen).`;
+
+function articleIdKeyword(entity) {
+  const alpha = String(entity || "").replace(/[^A-Za-z]/g, "").toUpperCase();
+  return alpha.slice(0, 4) || "XXXX";
+}
+
+async function countArticlesWithPrefix(prefix) {
+  try {
+    const formula = encodeURIComponent(`LEFT({Article ID}, ${prefix.length})='${prefix}'`);
+    let count = 0, offset = "";
+    for (let i = 0; i < 5; i++) {
+      const url = `${AIRTABLE_API}/${AIRTABLE_BASE_ID}/${encodeURIComponent(AIRTABLE_ARTICLES_TABLE)}?filterByFormula=${formula}&fields%5B%5D=${encodeURIComponent("Article ID")}&pageSize=100${offset ? `&offset=${encodeURIComponent(offset)}` : ""}`;
+      const r = await fetch(url, { headers: { Authorization: `Bearer ${AIRTABLE_API_KEY}` } });
+      if (!r.ok) break;
+      const data = await r.json();
+      count += (data.records || []).length;
+      if (!data.offset) break;
+      offset = data.offset;
+    }
+    return count;
+  } catch (e) {
+    console.error("countArticlesWithPrefix failed", e);
+    return 0;
+  }
+}
+
+async function articleSetup(recordId) {
+  const T = AIRTABLE_ARTICLES_TABLE;
+  let rec;
+  try {
+    rec = await airtableGetRecord(T, recordId);
+  } catch (e) {
+    console.error("setup: cannot read record", recordId, e);
+    return;
+  }
+  const f = rec.fields || {};
+  const series =
+    (typeof f["Series"] === "string" ? f["Series"] : (f["Series"] && f["Series"].name)) || "Large Employer";
+  const isEmployer = !/specialist/i.test(series);
+  const entity = String(f["Employer / Niche Name"] || "").trim();
+  const advisorUrl = String(f["Advisor Wealthtender URL"] || "").trim();
+
+  if (!entity) {
+    await safePatch(T, recordId, {
+      "Setup Notes": "\u26A0\uFE0F Enter the Employer / Niche Name first, then re-check Generate Setup.",
+      "Generate Setup": false,
+    });
+    return;
+  }
+
+  const now = new Date();
+  const idPrefix = `${isEmployer ? "EMPQA" : "ICPQA"}-${now.getFullYear()}-${now.getMonth() + 1}-${articleIdKeyword(entity)}-`;
+
+  let ai;
+  try {
+    ai = isEmployer
+      ? await callClaudeJSON(SETUP_EMPLOYER_SYSTEM, `Employer name: ${entity}`, 1500)
+      : await callClaudeJSON(SETUP_SPECIALIST_SYSTEM, `Niche audience: ${entity}`, 2000);
+  } catch (e) {
+    console.error("setup: model/parse failed", recordId, e);
+    await safePatch(T, recordId, {
+      "Setup Notes":
+        "\u26A0\uFE0F Setup could not complete (" +
+        String(e).slice(0, 160) +
+        "). Fix and re-check Generate Setup, or fill the fields manually.",
+      "Generate Setup": false,
+    });
+    return;
+  }
+
+  const n = (await countArticlesWithPrefix(idPrefix)) + 1;
+  const articleId = `${idPrefix}${n}`;
+
+  let audienceNoun, audienceShort, questionList, notes;
+  if (isEmployer) {
+    audienceNoun = String(ai.audienceNoun || "employees and executives").trim();
+    audienceShort = String(ai.audienceShort || "employees").trim();
+    const bespoke = Array.isArray(ai.bespokeQuestions) ? ai.bespokeQuestions.filter(Boolean) : [];
+    const standard = STANDARD_EMPLOYER_QUESTIONS.map((q) => q.replace(/COMPANY/g, entity));
+    questionList = standard.concat(bespoke).join("\n");
+    notes =
+      `Article ID: ${articleId}\n` +
+      `Category: ${ai.category || "?"}  |  Audience noun: "${audienceNoun}"  |  Short: "${audienceShort}"  |  & Executives: ${ai.ampExecutives ? "yes" : "no"}\n` +
+      (ai.rationale ? `Rationale: ${ai.rationale}\n` : "") +
+      `\nQuestion List = 12 standard (COMPANY \u2192 ${entity}) + 2 bespoke:\n` +
+      bespoke.map((q, i) => `  ${i + 1}. ${q}`).join("\n") +
+      `\n\nReview the audience-noun / "& Executives" call and the 2 bespoke questions, then copy the Invite URL and send.`;
+  } else {
+    audienceNoun = String(ai.audienceNoun || entity).trim();
+    audienceShort = String(ai.audienceShort || audienceNoun).trim();
+    const qs = Array.isArray(ai.questions) ? ai.questions.filter(Boolean) : [];
+    questionList = qs.join("\n");
+    notes =
+      `Article ID: ${articleId}\n` +
+      `Audience noun: "${audienceNoun}"  |  Short: "${audienceShort}"\n` +
+      `\nDrafted ${qs.length} questions for your review (edit/reorder/remove any in the Question List field):\n` +
+      qs.map((q, i) => `  ${i + 1}. ${q}`).join("\n") +
+      `\n\nThese are a starting point \u2014 tweak freely, then copy the Invite URL and send.`;
+  }
+
+  if (!advisorUrl) {
+    notes += `\n\n\u26A0\uFE0F Advisor Wealthtender URL is blank \u2014 add it before inviting (the article card + generation need it).`;
+  }
+
+  await safePatch(T, recordId, {
+    "Article ID": articleId,
+    "Audience Noun": audienceNoun,
+    "Audience Short": audienceShort,
+    "Question List": questionList.slice(0, 95000),
+    "Setup Notes": notes.slice(0, 95000),
+    "Status": "Ready to Invite",
+    "Generate Setup": false,
+  });
+  console.log(`setup complete ${recordId}: ${articleId} (${isEmployer ? "employer" : "specialist"})`);
+}
+
+app.post("/api/article-setup", async (req, res) => {
+  const recordId = (req.body && (req.body.recordId || req.body.id)) || "";
+  if (!recordId) return res.status(400).json({ error: "missing recordId" });
+  if (!ANTHROPIC_API_KEY || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID)
+    return res.status(500).json({ error: "server not configured for setup" });
+  res.json({ ok: true, queued: true, recordId });
+  articleSetup(recordId).catch((e) => console.error("setup background error", recordId, e));
+});
+
 const dist = path.join(__dirname, "..", "dist");
 app.use(express.static(dist));
 app.get("*", (_req, res) => res.sendFile(path.join(dist, "index.html")));
