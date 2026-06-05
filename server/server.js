@@ -457,12 +457,16 @@ async function fetchProfile(url) {
     }
 
     const anchorHref = (label) => {
-      const re = new RegExp('<a\\b[^>]*href=["\']([^"\']+)["\'][^>]*>\\s*' + label + '\\s*</a>', "i");
+      const lab = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const re = new RegExp('<a\\b[^>]*href=["\']([^"\']+)["\'][^>]*>(?:(?!</a>)[\\s\\S])*?' + lab + '(?:(?!</a>)[\\s\\S])*?</a>', "i");
       const m = html.match(re);
       return m ? m[1] : "";
     };
     const bookIntro = anchorHref("Book Intro Call");
-    const firmUrl = anchorHref("Website");
+    let firmUrl = "";
+    const provWeb = html.match(/<a\b[^>]*id=["']ProviderWebsite["'][^>]*>/i);
+    if (provWeb) firmUrl = (provWeb[0].match(/href=["']([^"']+)["']/i) || [])[1] || "";
+    if (!firmUrl) firmUrl = anchorHref("Website");
 
     let tagline = "";
     let hm;
@@ -477,8 +481,11 @@ async function fetchProfile(url) {
     }
 
     let bio = "";
-    const aboutM = html.match(/About\s+[^<]{0,60}<\/h[1-6]>\s*(?:<[^>]+>\s*)*<p\b[^>]*>([\s\S]*?)<\/p>/i);
-    if (aboutM) bio = aboutM[1].replace(/<[^>]+>/g, "").trim();
+    const aboutM = html.match(/About\s+[^<]{0,60}<\/h[1-6]>([\s\S]*?)<h[1-6]/i);
+    if (aboutM) {
+      const chunk = aboutM[1].replace(/<br\s*\/?>/gi, "\n").replace(/<[^>]+>/g, " ");
+      bio = chunk.split(/\n+/).map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean)[0] || "";
+    }
 
     return { name, firm, firmUrl, bookIntro, headshot, tagline, bio, location };
   } catch (e) {
