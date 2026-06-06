@@ -301,12 +301,32 @@ async function reviewSubmission(recordId) {
   try {
     review = await callClaudeJSON(REVIEW_SYSTEM, userText, 16000);
   } catch (e) {
-    console.error("review: model/parse failed", recordId, e);
+    console.error("review: model/parse failed; using verbatim fallback", recordId, e);
+    // Deterministic verbatim fallback: the automated mechanical pass could not
+    // complete (e.g. very long/dense answers overran or malformed the model's
+    // JSON echo). Build the Reviewed Q&A directly from the submitted answer HTML
+    // so the row is still reviewable and downstream generation can parse it.
+    // Verbatim is guaranteed because we use the stored submission text as-is.
+    const fb = answers
+      .map((a, i) => {
+        const ans = ((a && a.answerHtml) || "").trim() || "(no answer \u2014 skipped/empty)";
+        return `Q${i + 1}: ${(a && a.question) || ""}\n\nA${i + 1}: ${ans}`;
+      })
+      .concat(
+        proposed.map((p, j) => {
+          const ans = ((p && p.answerHtml) || "").trim() || "(no answer \u2014 skipped/empty)";
+          return `Q${answers.length + j + 1} [Proposed by advisor]: ${(p && p.question) || ""}\n\nA${answers.length + j + 1}: ${ans}`;
+        })
+      )
+      .join("\n\n\u2014\u2014\u2014\n\n") || "(no items found in submission)";
     await safePatch(table, recordId, {
+      "Reviewed Q&A": fb.slice(0, 95000),
+      "Changes Made":
+        "Automated mechanical review was unavailable for this submission, so answers were stored verbatim with no corrections. A manual spot-check for typos/punctuation is recommended.",
       "Flags Raised":
-        "\u26A0\uFE0F Automated review could not complete (" +
+        "\u26A0\uFE0F Automated mechanical/YMYL review could not complete (" +
         String(e).slice(0, 160) +
-        "). Please review this submission manually.",
+        "). Answers are stored verbatim; please review manually before approving.",
       "Status": "In Review",
     });
     return;
