@@ -345,7 +345,7 @@ async function reviewSubmission(recordId) {
 }
 
 app.post("/api/review", async (req, res) => {
-  const recordId = (req.body && (req.body.recordId || req.body.id)) || "";
+  const recordId = cleanRecordId(req.body && (req.body.recordId || req.body.id));
   if (!recordId) return res.status(400).json({ error: "missing recordId" });
   if (!ANTHROPIC_API_KEY || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID)
     return res.status(500).json({ error: "server not configured for review" });
@@ -392,6 +392,15 @@ const titleCase = (s = "") => String(s).toLowerCase().replace(/\b\w/g, (c) => c.
 const slugify = (s = "") =>
   String(s).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
+// Zapier's Airtable "New or Updated Record" trigger sends a COMPOSITE id of the
+// form recXXXXXXXXXXXXXX-<lastModifiedTimestamp>. Some triggers may also pass a
+// full record URL. Airtable record IDs are always "rec" + 14 alphanumerics, so
+// extract that canonical id from whatever we receive.
+const cleanRecordId = (v = "") => {
+  const m = String(v || "").match(/rec[A-Za-z0-9]{14}/);
+  return m ? m[0] : "";
+};
 
 function parseReviewedQA(text) {
   if (!text) return [];
@@ -744,7 +753,7 @@ async function generateArticle(recordId) {
 }
 
 app.post("/api/generate", async (req, res) => {
-  const recordId = (req.body && (req.body.recordId || req.body.id)) || "";
+  const recordId = cleanRecordId(req.body && (req.body.recordId || req.body.id));
   if (!recordId) return res.status(400).json({ error: "missing recordId" });
   if (!ANTHROPIC_API_KEY || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID)
     return res.status(500).json({ error: "server not configured for generate" });
@@ -936,7 +945,7 @@ async function articleSetup(recordId) {
 }
 
 app.post("/api/article-setup", async (req, res) => {
-  const recordId = (req.body && (req.body.recordId || req.body.id)) || "";
+  const recordId = cleanRecordId(req.body && (req.body.recordId || req.body.id));
   if (!recordId) return res.status(400).json({ error: "missing recordId" });
   if (!ANTHROPIC_API_KEY || !AIRTABLE_API_KEY || !AIRTABLE_BASE_ID)
     return res.status(500).json({ error: "server not configured for setup" });
