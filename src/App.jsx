@@ -90,6 +90,41 @@ const stripHtml = (h) => (h || "").replace(/<[^>]*>/g, " ").replace(/&nbsp;/g, "
 const htmlHasText = (h) => stripHtml(h).length > 0;
 
 /* ============================================================
+   DRAFT AUTOSAVE — persists in-progress answers to localStorage so
+   an advisor never loses work to a crash, refresh, sleep, or closed
+   tab. Keyed per article. All access is guarded: if storage is
+   unavailable (private mode, etc.) these no-op rather than throw.
+============================================================ */
+const DRAFT_PREFIX = "wt-intake-draft:";
+const draftKey = (articleId) => DRAFT_PREFIX + (articleId || "default");
+
+function saveDraft(articleId, snap) {
+  try {
+    localStorage.setItem(draftKey(articleId), JSON.stringify(snap));
+  } catch {}
+}
+function loadDraft(articleId) {
+  try {
+    const raw = localStorage.getItem(draftKey(articleId));
+    if (!raw) return null;
+    const snap = JSON.parse(raw);
+    // Only restore a draft that actually contains advisor-entered content.
+    const hasAnswers = snap && snap.answers && Object.values(snap.answers).some((v) => htmlHasText(v));
+    const hasProposed = snap && Array.isArray(snap.proposed) && snap.proposed.some((p) => (p.q && p.q.trim()) || htmlHasText(p.a));
+    const hasDisc = snap && htmlHasText(snap.disc);
+    if (!hasAnswers && !hasProposed && !hasDisc) return null;
+    return snap;
+  } catch {
+    return null;
+  }
+}
+function clearDraft(articleId) {
+  try {
+    localStorage.removeItem(draftKey(articleId));
+  } catch {}
+}
+
+/* ============================================================
    RICH INPUT — minimal contentEditable with Link + Bold.
    Outputs clean HTML; external links get target/rel automatically.
 ============================================================ */
@@ -425,6 +460,10 @@ export default function App() {
   const [excluded, setExcluded] = useState({});
   const [editingFrom, setEditingFrom] = useState(null);
   const [copied, setCopied] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [restored, setRestored] = useState(false);
+  const hydrated = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -442,6 +481,31 @@ export default function App() {
       if (!active) return;
       setCfg(conf);
 
+      // 1b) If this advisor has an in-progress draft for THIS article, restore it
+      // verbatim and resume where they left off — before generating anything fresh.
+      const snap = loadDraft(conf.articleId);
+      if (snap && snap.phase && snap.phase !== "submitted") {
+        setCustom(Array.isArray(snap.custom) ? snap.custom : []);
+        if (Array.isArray(snap.allQ) && snap.allQ.length) setAllQ(snap.allQ);
+        if (snap.answers) setAnswers(snap.answers);
+        if (snap.skipped) setSkipped(snap.skipped);
+        if (Array.isArray(snap.proposed) && snap.proposed.length) setProposed(snap.proposed);
+        if (typeof snap.propId === "number") setPropId(snap.propId);
+        if (typeof snap.hasDisc === "boolean") setHasDisc(snap.hasDisc);
+        if (typeof snap.disc === "string") setDisc(snap.disc);
+        if (typeof snap.ready === "boolean") setReady(snap.ready);
+        if (typeof snap.excluded === "object" && snap.excluded) setExcluded(snap.excluded);
+        const resumeIdx = typeof snap.idx === "number" ? snap.idx : 0;
+        setIdx(resumeIdx);
+        if (snap.answers && typeof snap.answers[resumeIdx] === "string") setDraft(snap.answers[resumeIdx]);
+        // Resume in the conversation (or wherever they were); avoid the AI
+        // transition spinner so restored text shows immediately.
+        setPhase(snap.phase === "welcome" ? "welcome" : (snap.phase === "submitted" ? "review" : snap.phase));
+        setRestored(true);
+        hydrated.current = true;
+        return;
+      }
+
       // 2) Large Employer: generate employer-specific questions. Specialist: none.
       if (conf.generateCustom) {
         try {
@@ -458,9 +522,45 @@ export default function App() {
       } else if (active) {
         setCustom([]);
       }
+      hydrated.current = true;
     })();
     return () => { active = false; };
   }, []);
+
+  // Continuously autosave the in-progress draft to localStorage. Folds the live
+  // editor buffer (draft) into answers at the current index so even mid-sentence
+  // typing survives a crash. Never runs before hydration (so the initial empty
+  // render can't clobber a restored draft) and never persists the submitted state.
+  useEffect(() => {
+    if (!hydrated.current) return;
+    if (phase === "submitted") return;
+    const mergedAnswers = { ...answers };
+    if (phase === "conversation" && htmlHasText(draft)) mergedAnswers[idx] = draft;
+    saveDraft(cfg.articleId, {
+      v: 1,
+      articleId: cfg.articleId,
+      savedAt: new Date().toISOString(),
+      phase, idx,
+      answers: mergedAnswers,
+      skipped, proposed, propId, hasDisc, disc, ready, excluded,
+      allQ, custom,
+    });
+  }, [phase, idx, answers, draft, skipped, proposed, propId, hasDisc, disc, ready, excluded, allQ, custom, cfg.articleId]);
+
+  // Warn before leaving with unsaved-looking work in progress. (The draft is
+  // already persisted to localStorage; this is a second, belt-and-suspenders cue.)
+  useEffect(() => {
+    const handler = (e) => {
+      if (phase === "submitted" || phase === "welcome") return;
+      const hasContent = Object.values(answers).some((v) => htmlHasText(v)) || htmlHasText(draft) ||
+        proposed.some((p) => (p.q && p.q.trim()) || htmlHasText(p.a)) || htmlHasText(disc);
+      if (!hasContent) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [phase, answers, draft, proposed, disc]);
 
   const buildAll = () => {
     const c = custom || [];
@@ -538,6 +638,9 @@ export default function App() {
   };
 
   const doSubmit = async () => {
+    if (submitting) return; // guard against double-submit
+    setSubmitting(true);
+    setSubmitError("");
     const payload = {
       articleId: cfg.articleId,
       series: cfg.series,
@@ -554,13 +657,28 @@ export default function App() {
       submittedAt: new Date().toISOString(),
     };
     try {
-      await fetch("/api/submit", {
+      const r = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-    } catch {}
-    setPhase("submitted");
+      if (!r.ok) throw new Error(`The server returned an error (${r.status}).`);
+      const d = await r.json().catch(() => null);
+      if (!d || d.ok !== true) throw new Error("The submission wasn't confirmed.");
+      // Treat a fallback-to-log as NOT durably saved — the record isn't in the
+      // database, so we must not tell the advisor it succeeded.
+      if (d.stored && d.stored === "log") throw new Error("We couldn't reach the database to save your answers.");
+      // Confirmed durable save — now it's safe to clear the local draft.
+      clearDraft(cfg.articleId);
+      setPhase("submitted");
+    } catch (e) {
+      setSubmitError(
+        (e && e.message ? e.message + " " : "") +
+        "Your answers are safe and still here on this page — nothing was lost. Please try submitting again in a moment."
+      );
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const total = allQ.length || buildAll().length;
@@ -609,6 +727,14 @@ export default function App() {
             <button className="wt-allbtn" onClick={() => setShowAll(true)}><FileText size={15} /> All questions</button>
           )}
         </div>
+
+        {restored && phase !== "submitted" && (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10, margin: "0 0 18px 0", padding: "12px 16px", background: "#eef6f0", border: "1px solid #c8e2d2", borderRadius: 8, color: "#1c5234", fontSize: 14, lineHeight: 1.6 }}>
+            <Check size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+            <span style={{ flex: 1 }}>Welcome back — we restored your in-progress answers so you can pick up right where you left off.</span>
+            <button onClick={() => setRestored(false)} style={{ background: "none", border: "none", color: "#1c5234", cursor: "pointer", fontWeight: 600, fontSize: 13 }}>Dismiss</button>
+          </div>
+        )}
 
         {/* WELCOME */}
         {phase === "welcome" && (
@@ -799,11 +925,16 @@ export default function App() {
                 <span className="wt-checktext">These answers are ready for publication and, where required, have been reviewed for compliance.</span>
               </label>
               <div className="wt-controls" style={{ marginTop: 22 }}>
-                <button className="wt-ghost" onClick={() => setPhase("compliance")}><ArrowLeft size={15} /> Back</button>
-                <button className="wt-next" onClick={doSubmit} disabled={!ready} style={{ padding: "13px 24px" }}>
-                  Submit my Q&amp;A <ArrowRight size={16} />
+                <button className="wt-ghost" onClick={() => setPhase("compliance")} disabled={submitting}><ArrowLeft size={15} /> Back</button>
+                <button className="wt-next" onClick={doSubmit} disabled={!ready || submitting} style={{ padding: "13px 24px" }}>
+                  {submitting ? "Submitting…" : <>Submit my Q&amp;A <ArrowRight size={16} /></>}
                 </button>
               </div>
+              {submitError && (
+                <p style={{ marginTop: 14, padding: "12px 16px", background: "#fff4f4", border: "1px solid #f3c9c9", borderRadius: 8, color: "#9a2222", fontSize: 14, lineHeight: 1.6 }} role="alert">
+                  {submitError}
+                </p>
+              )}
             </div>
           </div>
         )}
