@@ -195,14 +195,14 @@ app.post("/api/submit", async (req, res) => {
     if (!r.ok) {
       const errText = await r.text();
       console.error("airtable submit failed", r.status, errText, "PAYLOAD:", JSON.stringify(payload));
-      return res.json({ ok: true, stored: "log" });
+      return res.status(502).json({ ok: false, stored: "log", error: "Could not save your submission to the database. It has been logged for recovery." });
     }
 
     const data = await r.json();
     res.json({ ok: true, stored: "airtable", id: data.id });
   } catch (e) {
     console.error("submit error", e, "PAYLOAD:", JSON.stringify(req.body));
-    res.json({ ok: true, stored: "log" });
+    res.status(502).json({ ok: false, stored: "log", error: "Could not save your submission to the database. It has been logged for recovery." });
   }
 });
 
