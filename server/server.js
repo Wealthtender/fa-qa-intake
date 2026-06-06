@@ -299,7 +299,7 @@ async function reviewSubmission(recordId) {
 
   let review;
   try {
-    review = await callClaudeJSON(REVIEW_SYSTEM, userText);
+    review = await callClaudeJSON(REVIEW_SYSTEM, userText, 16000);
   } catch (e) {
     console.error("review: model/parse failed", recordId, e);
     await safePatch(table, recordId, {
