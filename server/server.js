@@ -561,9 +561,9 @@ function buildTeaser(P, isEmployer, ctx) {
     ? `Get expert insights from financial advisors who specialize in helping ${cardText(ctx.entity)} ${cardText(ctx.audienceNoun)} make the most of their compensation package and benefits.`
     : `Get expert insights from financial advisors who specialize in helping ${cardText(ctx.entity)} navigate the unique financial planning challenges they face.`;
   return `<!-- wp:html -->
-<div style="border-left: 4px solid ${P.accent}; background: ${P.light}; border-radius: 0 6px 6px 0; padding: 20px 24px; margin: 0 0 28px 0;" itemscope itemtype="https://schema.org/Article">
+<div style="border-left: 4px solid ${P.accent}; background: ${P.light}; border-radius: 0 6px 6px 0; padding: 20px 24px; margin: 0 0 28px 0;">
   <p style="margin: 0 0 10px 0; font-size: 12px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: ${P.accent}; font-family: inherit;">${eyebrow}</p>
-  <p itemprop="description" style="margin: 0; font-size: 17px; font-weight: 500; color: #1a2833; line-height: 1.8; font-family: inherit;">${sentence}</p>
+  <p style="margin: 0; font-size: 17px; font-weight: 500; color: #1a2833; line-height: 1.8; font-family: inherit;">${sentence}</p>
 </div>
 <!-- /wp:html -->`;
 }
@@ -571,18 +571,18 @@ function buildTeaser(P, isEmployer, ctx) {
 function buildKeyTakeaways(P, takeaways) {
   const items = (takeaways || []).slice(0, 4).map((it, i, arr) => {
     const last = i === arr.length - 1;
-    return `    <div itemprop="itemListElement" itemscope itemtype="https://schema.org/ListItem" style="display: flex; gap: 16px;${last ? "" : " margin-bottom: 20px;"}">
+    return `    <div style="display: flex; gap: 16px;${last ? "" : " margin-bottom: 20px;"}">
       <div style="flex-shrink: 0; background: ${P.accent}; color: #fff; font-weight: 700; font-size: 15px; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">${i + 1}</div>
       <div>
-        <p style="margin: 0 0 4px 0; font-weight: 700; font-size: 16px; color: #1a2833;" itemprop="name">${esc(it.heading)}</p>
-        <p style="margin: 0; font-size: 15px; color: #333; line-height: 1.6;" itemprop="description">${esc(it.description)}</p>
+        <p style="margin: 0 0 4px 0; font-weight: 700; font-size: 16px; color: #1a2833;">${esc(it.heading)}</p>
+        <p style="margin: 0; font-size: 15px; color: #333; line-height: 1.6;">${esc(it.description)}</p>
       </div>
     </div>`;
   }).join("\n");
   return `<!-- wp:html -->
 <div style="background: ${KT_FILL}; border-left: 5px solid ${P.accent}; border-radius: 8px; padding: 24px 28px; margin: 24px 0; font-family: inherit;">
   <p style="margin: 0 0 16px 0; font-size: 13px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: ${P.accent};">Key Takeaways</p>
-  <div itemscope itemtype="https://schema.org/ItemList">
+  <div>
 ${items}
   </div>
 </div>
@@ -593,11 +593,9 @@ function buildQAPairs(P, qa) {
   return qa.map((it, i) => {
     const last = i === qa.length - 1;
     const outer = last ? `padding:20px 0;` : `border-bottom:1px solid ${P.divider};padding:20px 0;`;
-    return `    <div style="${outer}" itemscope itemprop="mainEntity" itemtype="https://schema.org/Question">
-      <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:${P.accent};line-height:1.5;font-family:inherit;display:flex;gap:10px;align-items:flex-start;"><span style="flex-shrink:0;background:${P.accent};color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;margin-top:2px;letter-spacing:0.05em;font-family:inherit;">Q</span><span itemprop="name">${esc(it.question)}</span></p>
-      <div itemscope itemprop="acceptedAnswer" itemtype="https://schema.org/Answer">
-        <div itemprop="text" style="font-size:15px;color:#444;line-height:1.75;font-family:inherit;padding-left:34px;">${it.answerHtml}</div>
-      </div>
+    return `    <div style="${outer}">
+      <p style="margin:0 0 10px 0;font-size:15px;font-weight:700;color:${P.accent};line-height:1.5;font-family:inherit;display:flex;gap:10px;align-items:flex-start;"><span style="flex-shrink:0;background:${P.accent};color:#fff;font-size:11px;font-weight:700;padding:2px 7px;border-radius:3px;margin-top:2px;letter-spacing:0.05em;font-family:inherit;">Q</span><span>${esc(it.question)}</span></p>
+      <div style="font-size:15px;color:#444;line-height:1.75;font-family:inherit;padding-left:34px;">${it.answerHtml}</div>
     </div>`;
   }).join("\n");
 }
@@ -613,16 +611,16 @@ function buildCard(P, ctx, profile, qa) {
   const anchorId = slugify(ctx.advisorFirst || name) || "advisor";
 
   const imgHtml = headshot
-    ? `<img src="${urlAttr(headshot)}" alt="${cardText(name)}, Financial Advisor for ${cardText(ctx.audienceLabel)} at ${cardText(firm || "their firm")}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.35);flex-shrink:0;" itemprop="image">`
+    ? `<img src="${urlAttr(headshot)}" alt="${cardText(name)}, Financial Advisor for ${cardText(ctx.audienceLabel)} at ${cardText(firm || "their firm")}" style="width:72px;height:72px;border-radius:50%;object-fit:cover;border:3px solid rgba(255,255,255,0.35);flex-shrink:0;">`
     : "";
   const firmHtml = firm
     ? (firmUrl
-        ? `<a href="${urlAttr(firmUrl)}" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,0.95);text-decoration:underline;font-family:inherit;" itemprop="worksFor">${cardText(firm)}</a>`
-        : `<span itemprop="worksFor">${cardText(firm)}</span>`)
+        ? `<a href="${urlAttr(firmUrl)}" target="_blank" rel="noopener noreferrer" style="color:rgba(255,255,255,0.95);text-decoration:underline;font-family:inherit;">${cardText(firm)}</a>`
+        : `<span>${cardText(firm)}</span>`)
     : "";
   const metaLine = [firmHtml, location ? cardText(location) : "", "Serves clients nationwide"].filter(Boolean).join(" &nbsp;&middot;&nbsp; ");
   const taglineHtml = tagline
-    ? `\n      <span style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:4px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,0.9);font-family:inherit;" itemprop="description">${cardText(tagline)}</span>`
+    ? `\n      <span style="display:inline-block;background:rgba(255,255,255,0.15);border-radius:4px;padding:5px 12px;font-size:12px;color:rgba(255,255,255,0.9);font-family:inherit;">${cardText(tagline)}</span>`
     : "";
   const bookBtn = profile.bookIntro
     ? `\n    <a href="${urlAttr(profile.bookIntro)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#fff;color:${P.accent};text-decoration:none;border-radius:5px;padding:9px 18px;font-size:13px;font-weight:700;font-family:inherit;flex-shrink:0;white-space:nowrap;">Book Intro Call</a>`
@@ -645,15 +643,15 @@ function buildCard(P, ctx, profile, qa) {
 
   <p style="margin:0 0 8px 0;font-size:11px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:#999;font-family:inherit;">${ctx.cardEyebrow}</p>
 
-  <div style="background:${P.accent};border-radius:10px 10px 0 0;padding:22px 28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;" itemscope itemtype="https://schema.org/Person">
+  <div style="background:${P.accent};border-radius:10px 10px 0 0;padding:22px 28px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
     ${imgHtml}
     <div style="flex:1;min-width:200px;">
-      <p style="margin:0 0 4px 0;font-size:19px;font-weight:700;color:#fff;font-family:inherit;" itemprop="name">${cardText(name)}</p>
+      <p style="margin:0 0 4px 0;font-size:19px;font-weight:700;color:#fff;font-family:inherit;">${cardText(name)}</p>
       <p style="margin:0 0 10px 0;font-size:13px;color:rgba(255,255,255,0.8);font-family:inherit;">${metaLine}</p>${taglineHtml}
     </div>${bookBtn}
   </div>
 ${bioStrip}
-  <div style="background:#fff;border:1px solid ${P.border};${qaTopBorder}padding:0 28px;font-family:inherit;" itemscope itemtype="https://schema.org/FAQPage">
+  <div style="background:#fff;border:1px solid ${P.border};${qaTopBorder}padding:0 28px;font-family:inherit;">
 ${buildQAPairs(P, qa)}
   </div>
 
@@ -663,6 +661,275 @@ ${buildQAPairs(P, qa)}
 
 </div>
 <!-- /wp:html -->`;
+}
+
+/* ----------------------------------------------------------
+   Style Guide section 7 (intro body) + closing scaffolding.
+   These were specified in the playbook but never ported into
+   the generator; added here so /api/generate emits a complete,
+   paste-ready article wrapped in a single constrained Group
+   (no empty-column layout scaffolding) with one JSON-LD payload
+   (no scattered inline microdata).
+---------------------------------------------------------- */
+const LINK = {
+  hsa: "https://wealthtender.com/insights/investing/why-you-should-put-the-max-in-your-hsa-before-putting-more-in-your-401k/",
+  quitting: "https://wealthtender.com/insights/money-management/what-happens-to-your-401k-when-you-quit-your-job/",
+  layoff: "https://wealthtender.com/insights/money-management/avoid-getting-laid-off/",
+  nearMe: "https://wealthtender.com/financial-advisor-near-me/",
+  virtual: "https://wealthtender.com/guide/virtual-financial-advisors/",
+  find: "https://wealthtender.com/find-financial-advisor/",
+  joinAdvisor: "https://wealthtender.com/financial-advisor-marketing",
+  authorBio: "https://wealthtender.com/author/brian-thorp/",
+  authorLinkedIn: "https://www.linkedin.com/in/briancthorp/",
+  authorHeadshot: "https://wealthtender.com/wp-content/uploads/2023/01/Brian-Thorp-Business-Card-427x640.jpg",
+};
+// Default evergreen "Browse Related Articles" set (review per article).
+const RELATED_DEFAULT = ["21590", "14979", "14634", "49306", "58729"];
+const QUESTION_FORM_ID = "34";
+const NEWSLETTER_FORM_ID = "1";
+
+const stripTags = (s = "") => String(s).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+const aOrAn = (w = "") => (/^[aeiou]/i.test(String(w).trim()) ? "an" : "a");
+// Plain-text body insertions (entities like "AT&T" -> "AT&amp;T", curly apostrophes).
+const txt = (s = "") => cardText(s);
+
+const pBlock = (html) => `<!-- wp:paragraph -->\n<p>${html}</p>\n<!-- /wp:paragraph -->`;
+function hBlock(level, html, anchor) {
+  const attrs = {};
+  if (level && level !== 2) attrs.level = level;
+  if (anchor) attrs.anchor = anchor;
+  const attrStr = Object.keys(attrs).length ? " " + JSON.stringify(attrs) : "";
+  const idAttr = anchor ? ` id="${anchor}"` : "";
+  return `<!-- wp:heading${attrStr} -->\n<h${level} class="wp-block-heading"${idAttr}>${html}</h${level}>\n<!-- /wp:heading -->`;
+}
+
+// Map the setup classifier's category to the section 8 benefits-swap clause.
+function inferCategory(noun = "") {
+  const n = String(noun).toLowerCase();
+  if (n.includes("executive")) return "corporate";
+  if (n.includes("faculty")) return "university";
+  if (n.includes("service member")) return "military";
+  if (n.includes("first responder")) return "first_responders";
+  if (n.includes("member")) return "government_pension";
+  return "other"; // healthcare + plain "employees" fall back to a generic clause
+}
+function benefitsParagraph(category, entity, audienceNoun, audienceShort) {
+  const E = txt(entity);
+  const hsa = `<a href="${LINK.hsa}">health savings accounts</a>`;
+  const MAP = {
+    corporate: {
+      range: `health insurance and ${hsa} to retirement plans like a 401(k) and deferred compensation, along with equity compensation such as restricted stock units (RSUs), stock options, and an employee stock purchase plan`,
+      org: "the company",
+    },
+    healthcare: {
+      range: `health insurance and ${hsa} to retirement plans like a 403(b) or 401(k) and other valuable workplace benefits`,
+      org: "the organization",
+    },
+    university: {
+      range: `health insurance and ${hsa} to retirement plans like a 403(b), pension options, and other faculty and staff benefits`,
+      org: "the institution",
+    },
+    government_pension: {
+      range: `health insurance to a defined-benefit pension, a 457(b) or Thrift Savings Plan, and other benefits available to members`,
+      org: "the organization",
+    },
+    military: {
+      range: `health and medical benefits to the Thrift Savings Plan, the Blended Retirement System, and other benefits available to service members`,
+      org: "the service",
+    },
+    first_responders: {
+      range: `health insurance to a pension, a 457(b) or 403(b), and other benefits`,
+      org: "the department",
+    },
+    other: {
+      range: `health insurance and ${hsa} to retirement plans like a 401(k) or 403(b) and other valuable workplace benefits`,
+      org: "the organization",
+    },
+  };
+  const m = MAP[category] || MAP.other;
+  return `Throughout the year, ${E} provides its ${txt(audienceNoun)} with updates about their benefits, ranging from ${m.range}. While ${m.org} offers many useful resources and access to knowledgeable staff who can assist with questions, you&#8217;ll also find financial professionals not affiliated with ${E} who specialize in helping ${E} ${txt(audienceShort)} make the most of their income and benefits.`;
+}
+
+// Items 2-3: keyword lead paragraph + hook + two checkmark questions.
+function buildIntroLead(P, isEmployer, ctx) {
+  const E = txt(ctx.entity);
+  if (isEmployer) {
+    const short = txt(ctx.audienceShort);
+    const noun = txt(ctx.audienceNoun);
+    return [
+      pBlock(`Looking for a financial advisor who specializes in working with ${E} ${short}? You&#8217;re in the right place. Below, you&#8217;ll find advisors who understand ${E} benefits and compensation &mdash; along with their answers to common financial questions from ${E} ${noun}.`),
+      pBlock(`Whether you recently joined ${E} or you&#8217;ve advanced into a management or executive leadership role over a multi-year career, making smart decisions about your income and ${E} benefits can have a lasting impact on your financial future. For example:`),
+      pBlock(`&#9989; Do you know the right moves to get the greatest value from the ${E} benefits available to you?`),
+      pBlock(`&#9989; If you&#8217;re thinking about leaving ${E} for another job or planning to retire in a few years, are you taking the right steps today to receive all the compensation and benefits you&#8217;ve earned?`),
+    ].join("\n\n");
+  }
+  const noun = txt(ctx.audienceNoun);
+  return [
+    pBlock(`Looking for a financial advisor who specializes in working with ${noun}? You&#8217;re in the right place. Below, you&#8217;ll find advisors with experience helping ${noun} navigate their unique financial planning needs &mdash; along with their answers to common questions.`),
+    pBlock(`Finding the right financial advisor matters even more when your situation is specialized. For example:`),
+    pBlock(`&#9989; Do you know whether your current plan accounts for the financial challenges specific to ${noun}?`),
+    pBlock(`&#9989; Are you working with an advisor who understands your circumstances well enough to help you avoid costly mistakes?`),
+  ].join("\n\n");
+}
+
+// Items 4-11: Why H2, benefits, geographic, sensitive topics, Should-You-Hire H3,
+// specialist-vs-local, the lightbulb Q&A intro, and the question prompt.
+function buildIntroBody(P, isEmployer, ctx) {
+  const E = txt(ctx.entity);
+  if (!isEmployer) {
+    const noun = txt(ctx.audienceNoun);
+    const whyH = `Why ${noun} Work with a Specialist Financial Advisor`;
+    const hireH = `Should You Hire a Specialist or a Local Financial Advisor?`;
+    return [
+      hBlock(2, whyH, "h-" + slugify(whyH)),
+      pBlock(`A specialist financial advisor brings experience with the specific tax rules, account types, and planning decisions that affect ${noun}. While a generalist can help with the basics, the nuances of your situation are often better served by a professional who works with people in circumstances like yours every day.`),
+      pBlock(`Sensitive topics &mdash; like major life transitions, cross-border or tax complexity, and deciding when and how to make big financial moves &mdash; are all conversations that may be more comfortable with a trusted financial advisor who understands your situation.`),
+      hBlock(3, hireH, "h-" + slugify(hireH)),
+      pBlock(`You&#8217;ll likely find dozens of <a href="${LINK.nearMe}">nearby financial advisors</a> well-suited to help you reach your money goals with a personalized plan. But it can be harder to find a financial advisor who specializes in serving ${noun}. Fortunately, many financial advisors offer <a href="${LINK.virtual}">virtual services</a>, so you can meet online no matter where you (or they) live &mdash; which means you can <a href="${LINK.find}">hire a specialist financial advisor</a> who lives hundreds of miles away if their knowledge and experience are the better fit for your unique needs.`),
+      pBlock(`&#128161; In the Q&amp;A below, you&#8217;ll gain insights from financial advisors who work with ${noun} to help them make smart decisions, reduce their money stress, and feel confident about their financial future.`),
+      pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit it anonymously and watch this article for updates with answers to your questions. You can also reach out to the financial advisors below to set up an introductory call or contact them with your questions by email.`),
+    ].join("\n\n");
+  }
+  const short = txt(ctx.audienceShort);
+  const shortTitle = titleCase(ctx.audienceShort);
+  const whyH = `Why ${ctx.entity} ${shortTitle} Work with a Specialist Financial Advisor`;
+  const hireH = `Should You Hire ${aOrAn(ctx.entity)} ${ctx.entity} Specialist or a Local Financial Advisor?`;
+  const layoffPhrase = ctx.category === "corporate" ? "corporate layoff" : "layoff or workforce reduction";
+  return [
+    hBlock(2, txt(whyH), "h-" + slugify(whyH)),
+    pBlock(benefitsParagraph(ctx.category, ctx.entity, ctx.audienceNoun, ctx.audienceShort)),
+    pBlock(`Whether you work at one of ${E}&#8217;s offices, from a regional hub, or remotely from home, you may have questions about your compensation package and benefits better suited for a financial professional who can offer unbiased advice and guidance.`),
+    pBlock(`Sensitive topics &mdash; like the steps you should take before <a href="${LINK.quitting}">quitting your job</a> at ${E} to work elsewhere, protecting yourself in advance of a <a href="${LINK.layoff}">${layoffPhrase}</a>, or deciding when you should plan to retire &mdash; are all conversations that may be more comfortable with a trusted financial advisor.`),
+    hBlock(3, txt(hireH), "h-" + slugify(hireH)),
+    pBlock(`You&#8217;ll likely find dozens of <a href="${LINK.nearMe}">nearby financial advisors</a> well-suited to help you reach your money goals with a personalized plan. But it can be harder to find a financial advisor who specializes in serving ${E} ${short}. Fortunately, many financial advisors offer <a href="${LINK.virtual}">virtual services</a>, so you can meet online no matter where you (or they) live &mdash; which means you can <a href="${LINK.find}">hire a specialist financial advisor</a> who lives hundreds of miles away if their knowledge and experience working with ${E} ${short} is the better fit for your unique needs.`),
+    pBlock(`&#128161; In the Q&amp;A below, you&#8217;ll gain insights from financial advisors who work with ${E} ${short} to help them make smart decisions, get the most value from their compensation and benefits, reduce their money stress, and prepare for a comfortable retirement.`),
+    pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit it anonymously and watch this article for updates with answers to your questions. You can also reach out to the financial advisors below to set up an introductory call or contact them with your questions by email.`),
+  ].join("\n\n");
+}
+
+// Items 12-13: the Q&A section heading + one-sentence lead-in.
+function buildQaHeading(P, isEmployer, ctx) {
+  if (isEmployer) {
+    const nounAmp = titleCase(ctx.audienceNoun).replace(/\bAnd\b/g, "&");
+    const heading = `Q&A: Financial Planning Tips for ${ctx.entity} ${nounAmp}`;
+    const anchor = "h-" + slugify("q-and-a-financial-planning-tips-for-" + ctx.entity + "-" + ctx.audienceNoun);
+    const h = `<!-- wp:heading {"style":{"typography":{"textTransform":"capitalize"}}} -->\n<h2 class="wp-block-heading" id="${anchor}" style="text-transform:capitalize">${cardText(heading)}</h2>\n<!-- /wp:heading -->`;
+    const lead = pBlock(`In this section, you&#8217;ll learn how you can make the most of your ${txt(ctx.entity)} employee benefits and gain valuable tips from financial advisors who specialize in working with ${txt(ctx.entity)} ${txt(ctx.audienceNoun)}.`);
+    return h + "\n\n" + lead;
+  }
+  const heading = `Q&A: Financial Planning Insights for ${ctx.entity}`;
+  const anchor = "h-" + slugify("q-and-a-financial-planning-insights-for-" + ctx.entity);
+  const h = `<!-- wp:heading {"style":{"typography":{"textTransform":"capitalize"}}} -->\n<h2 class="wp-block-heading" id="${anchor}" style="text-transform:capitalize">${cardText(heading)}</h2>\n<!-- /wp:heading -->`;
+  const lead = pBlock(`In this section, you&#8217;ll gain valuable tips from financial advisors who specialize in working with ${txt(ctx.audienceNoun)}.`);
+  return h + "\n\n" + lead;
+}
+
+// Items 16-20: recruitment accordion, question form, newsletter, related row, author bio.
+// Universal scaffolding; varies only by entity/audience text.
+function buildClosing(P, isEmployer, ctx) {
+  const E = txt(ctx.entity);
+  const short = txt(ctx.audienceShort);
+  const accordionQ = isEmployer
+    ? `Are you a financial advisor who specializes in working with ${short} at ${E} or another large company?`
+    : `Are you a financial advisor who specializes in working with ${txt(ctx.audienceNoun)}?`;
+  const accordionBody = isEmployer
+    ? `&#9989; Join Wealthtender and get featured as a specialist financial advisor based on your knowledge and experience working with ${short} at ${E} or another large company. <em>(Subject to availability and terms.)</em> <br>&#9989; <a href="${LINK.joinAdvisor}">Sign up today</a> and join financial advisors attracting their ideal clients on Wealthtender`
+    : `&#9989; Join Wealthtender and get featured as a specialist financial advisor based on your knowledge and experience working with ${txt(ctx.audienceNoun)}. <em>(Subject to availability and terms.)</em> <br>&#9989; <a href="${LINK.joinAdvisor}">Sign up today</a> and join financial advisors attracting their ideal clients on Wealthtender`;
+  const askH = isEmployer
+    ? `Ask a Financial Advisor Your ${ctx.entity} Benefits & Career Questions`
+    : `Ask a Financial Advisor Your Questions`;
+  const askAnchor = "h-" + slugify((isEmployer ? "ask-a-financial-advisor-your-" + ctx.entity + "-benefits-and-career-questions" : "ask-a-financial-advisor-your-questions"));
+  const related = RELATED_DEFAULT.map((id) => `"${id}"`).join(",");
+
+  return [
+    `<!-- wp:spacer {"height":"25px"} -->\n<div style="height:25px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`,
+    `<!-- wp:genesis-blocks/gb-accordion {"accordionFontSize":15} -->\n<div class="wp-block-genesis-blocks-gb-accordion gb-block-accordion gb-font-size-15"><details><summary class="gb-accordion-title">${cardText(accordionQ)}</summary><div class="gb-accordion-text"><!-- wp:paragraph -->\n<p>${accordionBody}</p>\n<!-- /wp:paragraph --></div></details></div>\n<!-- /wp:genesis-blocks/gb-accordion -->`,
+    `<!-- wp:spacer {"height":"20px"} -->\n<div style="height:20px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`,
+    hBlock(2, cardText(askH), askAnchor),
+    `<!-- wp:gravityforms/form {"formId":"${QUESTION_FORM_ID}","title":false,"inputPrimaryColor":"#204ce5"} /-->`,
+    `<!-- wp:genesis-blocks/gb-spacer -->\n<div style="color:#ddd" class="wp-block-genesis-blocks-gb-spacer gb-block-spacer gb-divider-solid gb-divider-size-1"><hr style="height:30px"/></div>\n<!-- /wp:genesis-blocks/gb-spacer -->`,
+    `<!-- wp:heading {"textColor":"primary"} -->\n<h2 class="wp-block-heading has-primary-color has-text-color">Are you ready to enjoy life more with less money stress?</h2>\n<!-- /wp:heading -->`,
+    pBlock(`Sign up to receive weekly insights from Wealthtender with useful money tips and fresh ideas to help you achieve your financial goals.`),
+    `<!-- wp:gravityforms/form {"formId":"${NEWSLETTER_FORM_ID}","title":false,"description":false,"inputPrimaryColor":"#204ce5"} /-->`,
+    `<!-- wp:genesis-blocks/gb-spacer -->\n<div style="color:#ddd" class="wp-block-genesis-blocks-gb-spacer gb-block-spacer gb-divider-solid gb-divider-size-1"><hr style="height:30px"/></div>\n<!-- /wp:genesis-blocks/gb-spacer -->`,
+    `<!-- wp:acf/article-row {"name":"acf/article-row","data":{"title":"\uD83D\uDCF0 Browse Related Articles","_title":"field_5fd2a81a9f9c9","layout":"row","_layout":"field_5fda937cbb309","articles":[${related}],"_articles":"field_5fd2a8259f9ca","featured_image":"1","_featured_image":"field_60b6c8b369e79","viewMoreText":"","_viewMoreText":"field_64ac40c148ca2","viewMoreLink":"","_viewMoreLink":"field_64ac40d548ca3"},"align":"","mode":"edit"} /-->`,
+    `<!-- wp:spacer {"height":"10px"} -->\n<div style="height:10px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`,
+    buildAuthorBio(),
+  ].join("\n\n");
+}
+
+function buildAuthorBio() {
+  return `<!-- wp:html -->
+<div style="margin: 40px 0 0 0; font-family: inherit;">
+
+  <p style="margin: 0 0 16px 0; font-size: 11px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: #999; font-family: inherit;">About the Author</p>
+
+  <div style="background: #f4f8fb; border: 1px solid #dce4ec; border-radius: 10px; padding: 28px; display: flex; gap: 24px; align-items: flex-start; flex-wrap: wrap;">
+
+    <img
+      src="${LINK.authorHeadshot}"
+      alt="Brian Thorp, Founder and CEO of Wealthtender and Editor-in-Chief"
+      style="width: 96px; height: 96px; border-radius: 50%; object-fit: cover; flex-shrink: 0; border: 3px solid #fff;"
+    >
+
+    <div style="flex: 1; min-width: 260px;">
+      <p style="margin: 0 0 2px 0; font-size: 20px; font-weight: 700; color: #1a2833; font-family: inherit;">Brian Thorp</p>
+      <p style="margin: 0 0 14px 0; font-size: 14px; font-weight: 600; color: #1a5276; font-family: inherit;">Founder &amp; CEO, Wealthtender &nbsp;&middot;&nbsp; Editor-in-Chief</p>
+
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #444; line-height: 1.7; font-family: inherit;">Brian Thorp is the founder and CEO of Wealthtender and serves as Editor-in-Chief. With over 25 years in the financial services industry &mdash; including nearly 22 years at Invesco, where he led strategic partnerships with wealth management firms representing more than $100 billion in assets &mdash; Brian founded Wealthtender to help people find financial advisors they can trust and make more informed money decisions.</p>
+
+      <p style="margin: 0 0 12px 0; font-size: 15px; color: #444; line-height: 1.7; font-family: inherit;">A member of the National Society of Compliance Professionals and its SEC Marketing Rule Working Group, Brian was recognized by WealthManagement.com as one of its &#8220;Ten to Watch in 2024&#8221; for his work reshaping how financial advisors market their services. He holds a B.B.A. in Finance from The University of Texas at Austin.</p>
+
+      <p style="margin: 0 0 16px 0; font-size: 15px; color: #444; line-height: 1.7; font-family: inherit;">Brian and his wife live in Austin, Texas.</p>
+
+      <p style="margin: 0; font-size: 14px; font-weight: 600; font-family: inherit;">
+        <a href="${LINK.authorBio}" style="color: #1a5276; text-decoration: none; font-family: inherit;">Read Brian&#8217;s full bio &#8594;</a>
+        &nbsp;&nbsp;&middot;&nbsp;&nbsp;
+        <a href="${LINK.authorLinkedIn}" target="_blank" rel="noopener noreferrer" style="color: #1a5276; text-decoration: none; font-family: inherit;">Connect on LinkedIn &#8594;</a>
+      </p>
+    </div>
+
+  </div>
+</div>
+<!-- /wp:html -->`;
+}
+
+// One coherent JSON-LD graph (Article + FAQPage + advisor Person + author),
+// replacing the scattered inline microdata. Visible Q&A text matches mainEntity.
+function buildJsonLd(ctx, profile, qa, isEmployer) {
+  const graph = [];
+  graph.push({
+    "@type": "FAQPage",
+    mainEntity: qa.map((it) => ({
+      "@type": "Question",
+      name: stripTags(it.question),
+      acceptedAnswer: { "@type": "Answer", text: String(it.answerHtml || "").trim() },
+    })),
+  });
+  const advisorName = stripTags(profile.name || ctx.advisorFirst || "Financial Advisor");
+  const person = { "@type": "Person", name: advisorName, jobTitle: "Financial Advisor" };
+  if (profile.firm) {
+    person.worksFor = { "@type": "Organization", name: profile.firm };
+    if (profile.firmUrl) person.worksFor.url = profile.firmUrl;
+  }
+  if (profile.headshot) person.image = profile.headshot;
+  if (ctx.advisorUrl) person.url = ctx.advisorUrl;
+  graph.push(person);
+  const article = { "@type": "Article" };
+  if (ctx.headline) article.headline = stripTags(ctx.headline);
+  if (ctx.metaDescription) article.description = ctx.metaDescription;
+  article.author = { "@type": "Person", name: "Brian Thorp", url: LINK.authorBio };
+  article.publisher = { "@type": "Organization", name: "Wealthtender", url: "https://wealthtender.com" };
+  graph.push(article);
+  const json = JSON.stringify({ "@context": "https://schema.org", "@graph": graph }, null, 2).replace(/</g, "\\u003c");
+  return `<!-- wp:html -->\n<script type="application/ld+json">\n${json}\n</script>\n<!-- /wp:html -->`;
+}
+
+// Wrap the full article body in a single constrained Group so content sits at a
+// readable width and centers on desktop / goes edge-to-edge on mobile -- without
+// empty layout columns. Tune contentSize to match the theme if needed.
+function wrapConstrained(inner) {
+  return `<!-- wp:group {"layout":{"type":"constrained","contentSize":"814px"}} -->\n<div class="wp-block-group">\n${inner}\n</div>\n<!-- /wp:group -->`;
 }
 
 async function generateArticle(recordId) {
@@ -732,16 +999,25 @@ async function generateArticle(recordId) {
     cardEyebrow = `Financial Advisor Q&amp;A &nbsp;&middot;&nbsp; ${cardText(entity)}`;
   }
 
+  const category = (String(art["Category"] || "").trim().toLowerCase()) || inferCategory(audienceNoun);
+
   const ctx = {
-    entity, audienceNoun, audienceLabel, cardEyebrow, advisorUrl, advisorFirst, compliance,
+    entity, audienceNoun, audienceShort, audienceLabel, cardEyebrow, advisorUrl, advisorFirst, compliance,
     audienceSingular: ai.audienceSingular || "",
+    category, headline, metaDescription: (ai.metaDescription || "").trim(),
   };
 
-  const generatedHtml = [
+  const body = [
     buildTeaser(P, isEmployer, ctx),
+    buildIntroLead(P, isEmployer, ctx),
     buildKeyTakeaways(P, ai.keyTakeaways),
+    buildIntroBody(P, isEmployer, ctx),
+    buildQaHeading(P, isEmployer, ctx),
     buildCard(P, ctx, profile, qa),
+    buildClosing(P, isEmployer, ctx),
   ].join("\n\n");
+
+  const generatedHtml = buildJsonLd(ctx, profile, qa, isEmployer) + "\n\n" + wrapConstrained(body);
 
   const genFlags = [];
   if (!advisorUrl) genFlags.push("No Advisor Wealthtender URL on the Article record \u2014 advisor card built without profile data.");
@@ -754,6 +1030,11 @@ async function generateArticle(recordId) {
     if (!profile.tagline) genFlags.push("Specialty tagline not found \u2014 consider adding one.");
     if (!profile.bio) genFlags.push("Bio strip omitted (no About paragraph parsed) \u2014 consider adding the advisor bio.");
   }
+  if (isEmployer) {
+    genFlags.push(`Benefits paragraph built from the "${category}" template \u2014 confirm ${entity} actually offers each benefit named (remove any it doesn't).`);
+    genFlags.push(`Geographic paragraph uses a generic, evergreen template \u2014 optionally add ${entity}'s specific office locations or hubs for stronger local relevance.`);
+  }
+  genFlags.push("Browse Related Articles uses a default set of 5 posts \u2014 review/replace the article IDs for topical relevance.");
   if (seoTitle && seoTitle.length > 60) genFlags.push(`SEO Title is ${seoTitle.length} chars (target ~60) \u2014 consider shortening before publishing.`);
   const prevFlags = f["Flags Raised"] || "";
   const flagsOut = genFlags.length
@@ -956,6 +1237,7 @@ async function articleSetup(recordId) {
     "Article ID": articleId,
     "Audience Noun": audienceNoun,
     "Audience Short": audienceShort,
+    ...(isEmployer ? { "Category": String(ai.category || "").trim() } : {}),
     "Question List": questionList.slice(0, 95000),
     "Setup Notes": notes.slice(0, 95000),
     "Status": "Ready to Invite",
