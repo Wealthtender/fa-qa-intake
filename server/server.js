@@ -413,6 +413,24 @@ const slugify = (s = "") =>
   String(s).toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
+// Profile pages serve text already HTML-encoded (e.g. "Proper Planning &amp; ..."),
+// and some are double-encoded. Decode to plain text so downstream cardText() / JSON-LD
+// produce a single correct encoding instead of "&amp;amp;". Runs a few passes to
+// collapse multi-encoding. Not applied to advisor answer HTML (which stays verbatim).
+function decodeOnce(s) {
+  return String(s)
+    .replace(/&#x([0-9a-f]+);/gi, (_, h) => { try { return String.fromCodePoint(parseInt(h, 16)); } catch { return _; } })
+    .replace(/&#(\d+);/g, (_, d) => { try { return String.fromCodePoint(parseInt(d, 10)); } catch { return _; } })
+    .replace(/&quot;/gi, '"').replace(/&apos;/gi, "'")
+    .replace(/&lt;/gi, "<").replace(/&gt;/gi, ">").replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&");
+}
+const decodeEntities = (s = "") => {
+  let prev = String(s), cur = decodeOnce(prev);
+  for (let i = 0; i < 3 && cur !== prev; i++) { prev = cur; cur = decodeOnce(prev); }
+  return cur.trim();
+};
+
 // Zapier's Airtable "New or Updated Record" trigger sends a COMPOSITE id of the
 // form recXXXXXXXXXXXXXX-<lastModifiedTimestamp>. Some triggers may also pass a
 // full record URL. Airtable record IDs are always "rec" + 14 alphanumerics, so
@@ -484,6 +502,12 @@ async function fetchProfile(url) {
         if (headshot) break;
       }
     }
+    // NitroPack serves a cache URL that embeds the canonical /wp-content/ path; the
+    // cache URL is fragile (breaks on purge), so rewrite to the stable original.
+    if (/\/nitropack_static\//i.test(headshot)) {
+      const orig = headshot.match(/\/((?:[a-z0-9-]+\.)*wealthtender\.com\/wp-content\/.+)$/i);
+      if (orig) headshot = "https://" + orig[1];
+    }
 
     const anchorHref = (label) => {
       const lab = label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -516,7 +540,10 @@ async function fetchProfile(url) {
       bio = chunk.split(/\n+/).map((x) => x.replace(/\s+/g, " ").trim()).filter(Boolean)[0] || "";
     }
 
-    return { name, firm, firmUrl, bookIntro, headshot, tagline, bio, location };
+    return {
+      name: decodeEntities(name), firm: decodeEntities(firm), firmUrl, bookIntro,
+      headshot, tagline: decodeEntities(tagline), bio: decodeEntities(bio), location: decodeEntities(location),
+    };
   } catch (e) {
     console.error("profile fetch failed", url, e);
     return {};
