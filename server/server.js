@@ -515,7 +515,14 @@ async function fetchProfile(url) {
       const m = html.match(re);
       return m ? m[1] : "";
     };
-    const bookIntro = anchorHref("Book Intro Call");
+    // The intro-call button carries a stable id="BookIntroCall" regardless of the
+    // label text an advisor chooses (e.g. "Book Intro Call", "See If You're a Fit"),
+    // mirroring id="ProviderWebsite" for the firm site. Prefer the id; fall back to
+    // the default label text for any older markup.
+    let bookIntro = "";
+    const bookBtn = html.match(/<a\b[^>]*id=["']BookIntroCall["'][^>]*>/i);
+    if (bookBtn) bookIntro = (bookBtn[0].match(/href=["']([^"']+)["']/i) || [])[1] || "";
+    if (!bookIntro) bookIntro = anchorHref("Book Intro Call");
     let firmUrl = "";
     const provWeb = html.match(/<a\b[^>]*id=["']ProviderWebsite["'][^>]*>/i);
     if (provWeb) firmUrl = (provWeb[0].match(/href=["']([^"']+)["']/i) || [])[1] || "";
@@ -753,6 +760,7 @@ function inferCategory(noun = "") {
   if (n.includes("faculty")) return "university";
   if (n.includes("service member")) return "military";
   if (n.includes("first responder")) return "first_responders";
+  if (n.includes("federal") || n.includes("contractor") || n.includes("civil servant") || n.includes("civilian")) return "federal";
   if (n.includes("member")) return "government_pension";
   return "other"; // healthcare + plain "employees" fall back to a generic clause
 }
@@ -779,6 +787,10 @@ function benefitsParagraph(category, entity, audienceNoun, audienceShort) {
     military: {
       range: `health and medical benefits to the Thrift Savings Plan, the Blended Retirement System, and other benefits available to service members`,
       org: "the service",
+    },
+    federal: {
+      range: `health insurance through the Federal Employees Health Benefits (FEHB) program to a federal pension under the Federal Employees Retirement System (FERS), the Thrift Savings Plan (TSP) with agency matching, and other benefits available to federal employees (with contractors typically covered by their own employer-sponsored plans)`,
+      org: "the agency",
     },
     first_responders: {
       range: `health insurance to a pension, a 457(b) or 403(b), and other benefits`,
@@ -830,7 +842,7 @@ function buildIntroBody(P, isEmployer, ctx) {
       hBlock(3, hireH, "h-" + slugify(hireH)),
       pBlock(`You&#8217;ll likely find dozens of <a href="${LINK.nearMe}">nearby financial advisors</a> well-suited to help you reach your money goals with a personalized plan. But it can be harder to find a financial advisor who specializes in serving ${noun}. Fortunately, many financial advisors offer <a href="${LINK.virtual}">virtual services</a>, so you can meet online no matter where you (or they) live &mdash; which means you can <a href="${LINK.find}">hire a specialist financial advisor</a> who lives hundreds of miles away if their knowledge and experience are the better fit for your unique needs.`),
       pBlock(`&#128161; In the Q&amp;A below, you&#8217;ll gain insights from financial advisors who work with ${noun} to help them make smart decisions, reduce their money stress, and feel confident about their financial future.`),
-      pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit it anonymously and watch this article for updates with answers to your questions. You can also reach out to the financial advisors below to set up an introductory call or contact them with your questions by email.`),
+      pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit your question. You can also contact financial advisors directly to set up an introductory call or contact them with your questions.`),
     ].join("\n\n");
   }
   const short = txt(ctx.audienceShort);
@@ -846,7 +858,7 @@ function buildIntroBody(P, isEmployer, ctx) {
     hBlock(3, txt(hireH), "h-" + slugify(hireH)),
     pBlock(`You&#8217;ll likely find dozens of <a href="${LINK.nearMe}">nearby financial advisors</a> well-suited to help you reach your money goals with a personalized plan. But it can be harder to find a financial advisor who specializes in serving ${E} ${short}. Fortunately, many financial advisors offer <a href="${LINK.virtual}">virtual services</a>, so you can meet online no matter where you (or they) live &mdash; which means you can <a href="${LINK.find}">hire a specialist financial advisor</a> who lives hundreds of miles away if their knowledge and experience working with ${E} ${short} is the better fit for your unique needs.`),
     pBlock(`&#128161; In the Q&amp;A below, you&#8217;ll gain insights from financial advisors who work with ${E} ${short} to help them make smart decisions, get the most value from their compensation and benefits, reduce their money stress, and prepare for a comfortable retirement.`),
-    pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit it anonymously and watch this article for updates with answers to your questions. You can also reach out to the financial advisors below to set up an introductory call or contact them with your questions by email.`),
+    pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit your question. You can also contact financial advisors directly to set up an introductory call or contact them with your questions.`),
   ].join("\n\n");
 }
 
