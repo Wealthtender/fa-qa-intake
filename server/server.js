@@ -632,8 +632,10 @@ function buildCard(P, ctx, profile, qa) {
   const firm = profile.firm || "";
   const firmUrl = profile.firmUrl || "";
   const headshot = profile.headshot || "";
-  const tagline = profile.tagline || "";
-  const bio = profile.bio || "";
+  // Tagline + bio prefer ctx-provided (editorially generated, company-tied, third
+  // person) values; fall back to the advisor's profile copy when ctx doesn't set them.
+  const tagline = (ctx.cardTagline != null ? ctx.cardTagline : profile.tagline) || "";
+  const bio = (ctx.cardBio != null ? ctx.cardBio : profile.bio) || "";
   const location = profile.location || "";
   const anchorId = slugify(ctx.advisorFirst || name) || "advisor";
 
@@ -658,11 +660,25 @@ function buildCard(P, ctx, profile, qa) {
   </div>`
     : "";
   const qaTopBorder = bio ? "border-top:none;" : `border-top:1px solid ${P.border};`;
-  const footerProfile = ctx.advisorUrl
-    ? `<p style="margin:0;font-size:14px;font-family:inherit;"><a href="${urlAttr(ctx.advisorUrl)}" target="_blank" rel="noopener noreferrer" style="color:${P.accent};font-weight:600;font-family:inherit;">View ${cardText(ctx.advisorFirst || name.split(" ")[0])}&#8217;s profile page on Wealthtender &#8599;</a></p>`
+
+  // Closing CTA: reiterate the advisor's role serving this audience, lead with a
+  // prominent Book Intro Call action, keep the profile link as the secondary option.
+  const firstName = cardText(ctx.advisorFirst || stripTags(name).split(" ")[0] || "this advisor");
+  const roleLower = ctx.isEmployer
+    ? `${ctx.entity} ${String(ctx.audienceShort || "employees").toLowerCase()}`
+    : (ctx.audienceNoun || ctx.entity || "clients like you");
+  const ctaPrompt = `Considering a financial advisor who specializes in working with ${cardText(roleLower)}?`;
+  const ctaPrimary = profile.bookIntro
+    ? `<a href="${urlAttr(profile.bookIntro)}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:${P.accent};color:#fff;text-decoration:none;border-radius:6px;padding:11px 22px;font-size:14px;font-weight:700;font-family:inherit;">Book an Intro Call with ${firstName} &#8594;</a>`
+    : "";
+  const ctaSecondary = ctx.advisorUrl
+    ? `<a href="${urlAttr(ctx.advisorUrl)}" target="_blank" rel="noopener noreferrer" style="color:${P.accent};font-weight:600;font-size:14px;text-decoration:none;font-family:inherit;">View ${firstName}&#8217;s profile on Wealthtender &#8599;</a>`
+    : "";
+  const ctaRow = (ctaPrimary || ctaSecondary)
+    ? `\n    <div style="display:flex;gap:16px;align-items:center;flex-wrap:wrap;">${ctaPrimary}${ctaSecondary}</div>`
     : "";
   const disclosure = ctx.compliance
-    ? `\n    <p style="margin:8px 0 0 0;font-size:12px;color:#777;line-height:1.6;font-family:inherit;">${cardText(ctx.compliance)}</p>`
+    ? `\n    <p style="margin:14px 0 0 0;font-size:12px;color:#777;line-height:1.6;font-family:inherit;">${cardText(ctx.compliance)}</p>`
     : "";
 
   return `<!-- wp:html -->
@@ -682,8 +698,8 @@ ${bioStrip}
 ${buildQAPairs(P, qa)}
   </div>
 
-  <div style="background:#fff;border:1px solid ${P.border};border-top:1px solid ${P.divider};border-radius:0 0 10px 10px;padding:16px 28px;font-family:inherit;">
-    ${footerProfile}${disclosure}
+  <div style="background:${P.light};border:1px solid ${P.border};border-top:1px solid ${P.divider};border-radius:0 0 10px 10px;padding:20px 28px;font-family:inherit;">
+    <p style="margin:0 0 14px 0;font-size:15px;font-weight:600;color:#1a2833;line-height:1.5;font-family:inherit;">${ctaPrompt}</p>${ctaRow}${disclosure}
   </div>
 
 </div>
@@ -866,7 +882,6 @@ function buildClosing(P, isEmployer, ctx) {
     ? `Ask a Financial Advisor Your ${ctx.entity} Benefits & Career Questions`
     : `Ask a Financial Advisor Your Questions`;
   const askAnchor = "h-" + slugify((isEmployer ? "ask-a-financial-advisor-your-" + ctx.entity + "-benefits-and-career-questions" : "ask-a-financial-advisor-your-questions"));
-  const related = RELATED_DEFAULT.map((id) => `"${id}"`).join(",");
 
   return [
     `<!-- wp:spacer {"height":"25px"} -->\n<div style="height:25px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`,
@@ -879,10 +894,14 @@ function buildClosing(P, isEmployer, ctx) {
     pBlock(`Sign up to receive weekly insights from Wealthtender with useful money tips and fresh ideas to help you achieve your financial goals.`),
     `<!-- wp:gravityforms/form {"formId":"${NEWSLETTER_FORM_ID}","title":false,"description":false,"inputPrimaryColor":"#204ce5"} /-->`,
     `<!-- wp:genesis-blocks/gb-spacer -->\n<div style="color:#ddd" class="wp-block-genesis-blocks-gb-spacer gb-block-spacer gb-divider-solid gb-divider-size-1"><hr style="height:30px"/></div>\n<!-- /wp:genesis-blocks/gb-spacer -->`,
-    `<!-- wp:acf/article-row {"name":"acf/article-row","data":{"title":"\uD83D\uDCF0 Browse Related Articles","_title":"field_5fd2a81a9f9c9","layout":"row","_layout":"field_5fda937cbb309","articles":[${related}],"_articles":"field_5fd2a8259f9ca","featured_image":"1","_featured_image":"field_60b6c8b369e79","viewMoreText":"","_viewMoreText":"field_64ac40c148ca2","viewMoreLink":"","_viewMoreLink":"field_64ac40d548ca3"},"align":"","mode":"edit"} /-->`,
-    `<!-- wp:spacer {"height":"10px"} -->\n<div style="height:10px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`,
-    buildAuthorBio(),
   ].join("\n\n");
+}
+
+// "Browse Related Articles" row — emitted at the top level (outside the constrained
+// group) so it spans the full content width, matching the published SpaceX article.
+function buildRelatedRow() {
+  const related = RELATED_DEFAULT.map((id) => `"${id}"`).join(",");
+  return `<!-- wp:acf/article-row {"name":"acf/article-row","data":{"title":"\uD83D\uDCF0 Browse Related Articles","_title":"field_5fd2a81a9f9c9","layout":"row","_layout":"field_5fda937cbb309","articles":[${related}],"_articles":"field_5fd2a8259f9ca","featured_image":"1","_featured_image":"field_60b6c8b369e79","viewMoreText":"","_viewMoreText":"field_64ac40c148ca2","viewMoreLink":"","_viewMoreLink":"field_64ac40d548ca3"},"align":"","mode":"edit"} /-->`;
 }
 
 function buildAuthorBio() {
@@ -1030,9 +1049,23 @@ async function generateArticle(recordId) {
 
   const ctx = {
     entity, audienceNoun, audienceShort, audienceLabel, cardEyebrow, advisorUrl, advisorFirst, compliance,
+    isEmployer,
     audienceSingular: ai.audienceSingular || "",
     category, headline, metaDescription: (ai.metaDescription || "").trim(),
   };
+
+  // Employer series: replace the advisor's profile tagline/bio (often first-person
+  // and firm-branded) with third-person, company-tied framing that mirrors the
+  // published reference articles. These are editorial framing lines grounded in
+  // profile facts (name, location), NOT the advisor's verbatim words.
+  if (isEmployer) {
+    const first = stripTags(profile.name || advisorFirst || "This advisor").split(" ")[0] || "This advisor";
+    ctx.cardTagline = category === "corporate"
+      ? `Specializes in ${entity} employee financial planning & equity compensation`
+      : `Specializes in financial planning for ${entity} ${audienceShort}`;
+    const locClause = profile.location ? ` based in ${profile.location}` : "";
+    ctx.cardBio = `${first} is a financial advisor${locClause} who specializes in offering financial planning services to ${entity} ${audienceShort}. ${first} helps clients get the most value from their ${entity} benefits and compensation package so they can enjoy life and feel confident about their financial future.`;
+  }
 
   const body = [
     buildTeaser(P, isEmployer, ctx),
@@ -1044,7 +1077,21 @@ async function generateArticle(recordId) {
     buildClosing(P, isEmployer, ctx),
   ].join("\n\n");
 
-  const generatedHtml = buildJsonLd(ctx, profile, qa, isEmployer) + "\n\n" + wrapConstrained(body);
+  const smallGap = `<!-- wp:spacer {"height":"10px"} -->\n<div style="height:10px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`;
+  const trailingSpacer = `<!-- wp:spacer {"height":"30px"} -->\n<div style="height:30px" aria-hidden="true" class="wp-block-spacer"></div>\n<!-- /wp:spacer -->`;
+
+  // Main body sits in one constrained Group (readable width). The Browse Related
+  // Articles row is emitted at the top level so it spans full width like the
+  // published SpaceX article; the author bio gets its own constrained Group; a
+  // small trailing spacer closes the post.
+  const generatedHtml = [
+    buildJsonLd(ctx, profile, qa, isEmployer),
+    wrapConstrained(body),
+    buildRelatedRow(),
+    smallGap,
+    wrapConstrained(buildAuthorBio()),
+    trailingSpacer,
+  ].join("\n\n");
 
   const genFlags = [];
   if (!advisorUrl) genFlags.push("No Advisor Wealthtender URL on the Article record \u2014 advisor card built without profile data.");
