@@ -1123,9 +1123,13 @@ async function generateArticle(recordId) {
   genFlags.push("Browse Related Articles uses a default set of 5 posts \u2014 review/replace the article IDs for topical relevance.");
   if (seoTitle && seoTitle.length > 60) genFlags.push(`SEO Title is ${seoTitle.length} chars (target ~60) \u2014 consider shortening before publishing.`);
   const prevFlags = f["Flags Raised"] || "";
+  // Strip any prior "— Generation —" block(s) so re-running an article refreshes the
+  // generation flags instead of stacking stale duplicates; keep the review-step flags
+  // (the portion before the first generation marker).
+  const baseFlags = prevFlags.split(/\n*\u2014 Generation \u2014/)[0].replace(/\s+$/, "");
   const flagsOut = genFlags.length
-    ? (prevFlags ? prevFlags + "\n\n" : "") + "\u2014 Generation \u2014\n" + genFlags.map((x) => "\u2022 " + x).join("\n")
-    : prevFlags;
+    ? (baseFlags ? baseFlags + "\n\n" : "") + "\u2014 Generation \u2014\n" + genFlags.map((x) => "\u2022 " + x).join("\n")
+    : baseFlags;
 
   await safePatch(SUB, recordId, {
     "Generated HTML": generatedHtml.slice(0, 95000),
