@@ -854,9 +854,9 @@ function buildIntroBody(P, isEmployer, ctx) {
     hBlock(2, txt(whyH), "h-" + slugify(whyH)),
     pBlock(benefitsParagraph(ctx.category, ctx.entity, ctx.audienceNoun, ctx.audienceShort)),
     pBlock(`Whether you work at one of ${E}&#8217;s offices, from a regional hub, or remotely from home, you may have questions about your compensation package and benefits better suited for a financial professional who can offer unbiased advice and guidance.`),
-    pBlock(`Sensitive topics &mdash; like the steps you should take before <a href="${LINK.quitting}">quitting your job</a> at ${E} to work elsewhere, protecting yourself in advance of a <a href="${LINK.layoff}">${layoffPhrase}</a>, or deciding when you should plan to retire &mdash; are all conversations that may be more comfortable with a trusted financial advisor.`),
+    pBlock(`Sensitive topics &mdash; like the steps you should take before <a href="${LINK.quitting}">quitting your job</a> at ${E} to work elsewhere, protecting yourself in advance of a ${layoffPhrase}, or deciding when you should plan to retire &mdash; are all conversations that may be more comfortable with a trusted financial advisor.`),
     hBlock(3, txt(hireH), "h-" + slugify(hireH)),
-    pBlock(`You&#8217;ll likely find dozens of <a href="${LINK.nearMe}">nearby financial advisors</a> well-suited to help you reach your money goals with a personalized plan. But it can be harder to find a financial advisor who specializes in serving ${E} ${short}. Fortunately, many financial advisors offer <a href="${LINK.virtual}">virtual services</a>, so you can meet online no matter where you (or they) live &mdash; which means you can <a href="${LINK.find}">hire a specialist financial advisor</a> who lives hundreds of miles away if their knowledge and experience working with ${E} ${short} is the better fit for your unique needs.`),
+    pBlock(`You&#8217;ll likely find dozens of <a href="${LINK.nearMe}">nearby financial advisors</a> well-suited to help you reach your money goals with a personalized plan. But it can be harder to find a financial advisor who specializes in serving ${E} ${short}. Fortunately, many financial advisors offer virtual services, so you can meet online no matter where you (or they) live &mdash; which means you can <a href="${LINK.find}">hire a specialist financial advisor</a> who lives hundreds of miles away if their knowledge and experience working with ${E} ${short} is the better fit for your unique needs.`),
     pBlock(`&#128161; In the Q&amp;A below, you&#8217;ll gain insights from financial advisors who work with ${E} ${short} to help them make smart decisions, get the most value from their compensation and benefits, reduce their money stress, and prepare for a comfortable retirement.`),
     pBlock(`&#128587;&#8205;&#9792;&#65039; <em>Have a question not yet answered?</em> Use the form below to submit your question. You can also contact financial advisors directly to set up an introductory call or contact them with your questions.`),
   ].join("\n\n");
@@ -1076,7 +1076,7 @@ async function generateArticle(recordId) {
       ? `Specializes in ${entity} employee financial planning & equity compensation`
       : `Specializes in financial planning for ${entity} ${audienceShort}`;
     const locClause = profile.location ? ` based in ${profile.location}` : "";
-    ctx.cardBio = `${first} is a financial advisor${locClause} who specializes in offering financial planning services to ${entity} ${audienceShort}. ${first} helps clients get the most value from their ${entity} benefits and compensation package so they can enjoy life and feel confident about their financial future.`;
+    ctx.cardBio = `${(profile.name || advisorFirst || first).split(",")[0].trim()} is a financial advisor${locClause} who specializes in offering financial planning services to ${entity} ${audienceShort}. ${first} helps clients get the most value from their ${entity} benefits and compensation package so they can enjoy life and feel confident about their financial future.`;
   }
 
   const body = [
@@ -1096,8 +1096,8 @@ async function generateArticle(recordId) {
   // Articles row is emitted at the top level so it spans full width like the
   // published SpaceX article; the author bio gets its own constrained Group; a
   // small trailing spacer closes the post.
+  const jsonLd = buildJsonLd(ctx, profile, qa, isEmployer);
   const generatedHtml = [
-    buildJsonLd(ctx, profile, qa, isEmployer),
     wrapConstrained(body),
     buildRelatedRow(),
     smallGap,
@@ -1131,13 +1131,28 @@ async function generateArticle(recordId) {
     ? (baseFlags ? baseFlags + "\n\n" : "") + "\u2014 Generation \u2014\n" + genFlags.map((x) => "\u2022 " + x).join("\n")
     : baseFlags;
 
+  // Field-size guard: Airtable long-text fields cap at 100000 chars and
+  // truncate silently on write. Never store a truncated value -- if a field
+  // would exceed the cap, store nothing for it and flag loudly instead.
+  const FIELD_CAP = 95000;
+  const htmlTooBig = generatedHtml.length > FIELD_CAP;
+  const jsonLdTooBig = jsonLd.length > FIELD_CAP;
+  let flagsFinal = flagsOut;
+  if (htmlTooBig || jsonLdTooBig) {
+    const sizeNotes = [];
+    if (htmlTooBig) sizeNotes.push(`\u26a0\ufe0f DO NOT PUBLISH: Generated HTML is ${generatedHtml.length} chars (cap ${FIELD_CAP}) and was NOT stored, to avoid silent truncation. Reduce content or split further, then regenerate.`);
+    if (jsonLdTooBig) sizeNotes.push(`\u26a0\ufe0f DO NOT PUBLISH: Generated JSON-LD is ${jsonLd.length} chars (cap ${FIELD_CAP}) and was NOT stored, to avoid silent truncation.`);
+    flagsFinal = sizeNotes.join("\n") + "\n\n" + flagsOut;
+  }
+
   await safePatch(SUB, recordId, {
-    "Generated HTML": generatedHtml.slice(0, 95000),
+    "Generated HTML": htmlTooBig ? "" : generatedHtml,
+    "Generated JSON-LD": jsonLdTooBig ? "" : jsonLd,
     "Suggested Headline": headline,
     "SEO Title": seoTitle,
     "Meta Description": (ai.metaDescription || "").trim(),
     "Suggested Slug": slug,
-    "Flags Raised": flagsOut.slice(0, 95000),
+    "Flags Raised": flagsFinal.slice(0, FIELD_CAP),
     "Status": "HTML Ready",
   });
   console.log(`generate complete ${recordId}: ${qa.length} Q&A, ${genFlags.length} gen-flags`);
