@@ -10,7 +10,7 @@ app.use(express.json({ limit: "1mb" }));
 
 const {
   ANTHROPIC_API_KEY,
-  ANTHROPIC_MODEL = "claude-sonnet-4-20250514",
+  ANTHROPIC_MODEL = "claude-sonnet-4-6",
   AIRTABLE_API_KEY,
   AIRTABLE_BASE_ID,
   AIRTABLE_ARTICLES_TABLE = "Articles",
@@ -262,7 +262,7 @@ async function callClaudeJSON(system, userText, maxTokens = 8000) {
     .join("\n")
     .trim();
   const clean = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-  return JSON.parse(clean);
+  if (!r.ok || (data && data.error)) throw new Error("Anthropic API " + r.status + " (model " + ANTHROPIC_MODEL + "): " + JSON.stringify((data && data.error) || {}).slice(0, 300)); if (!clean) throw new Error("Empty model response (stop_reason=" + (data.stop_reason || "?") + ")"); return JSON.parse(clean);
 }
 
 async function safePatch(table, id, fields) {
