@@ -57,14 +57,14 @@ app.post("/api/claude", async (req, res) => {
    Airtable is wired up.
 ---------------------------------------------------------- */
 const DEFAULT_CONFIG = {
-  articleId: "EMPQA-2026-6-SPAC-1",
-  series: "Large Employer",
-  entity: "SpaceX",
-  audience: "employees and executives",
-  audienceShort: "employees",
-  advisorFirstName: "there",
-  generateCustom: true,
-};
+     articleId: "",
+     series: "Large Employer",
+     entity: "your company",
+     audience: "employees",
+     audienceShort: "employees",
+     advisorFirstName: "there",
+     generateCustom: true,
+   };
 
 app.get("/api/config", async (req, res) => {
   const id = req.query.id;
