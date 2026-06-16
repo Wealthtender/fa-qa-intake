@@ -12,13 +12,12 @@ import {
    The advisor first name comes from the Airtable advisor record.
 ============================================================ */
 const DEFAULT_CFG = {
-  articleId: "EMPQA-2026-6-SPAC-1",
-  series: "Large Employer",
-  entity: "SpaceX",
-  audience: "employees and executives",
-  audienceShort: "employees",
-  advisorFirstName: "there",
-  generateCustom: true,
+  articleId: "",
+     series: "Large Employer",
+     entity: "your company",
+     audience: "employees",
+     audienceShort: "employees",
+     advisorFirstName: "there",
 };
 
 const STANDARD_QUESTIONS = [
