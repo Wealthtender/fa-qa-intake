@@ -957,7 +957,7 @@ export default function App() {
           </div>
         )}
 
-        <p className="wt-note">Prototype · SpaceX Large Employer instance · Conversational responses powered live by Claude.</p>
+        <p className="wt-note">Wealthtender Large Employer Q&A · Conversational responses powered live by Claude.</p>
       </div>
 
       {/* ALL-QUESTIONS OVERLAY */}
