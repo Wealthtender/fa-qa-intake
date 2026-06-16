@@ -21,23 +21,23 @@ const DEFAULT_CFG = {
 };
 
 const STANDARD_QUESTIONS = [
-  "As a financial advisor with experience helping SpaceX employees save for their retirement, how do you help them make the most of their employee benefits?",
-  "When you first speak with a SpaceX employee, what questions do you like to ask to better understand their unique circumstances and determine how you can best help them achieve their goals?",
-  "Is there a particular benefit available to SpaceX employees you feel isn't as well utilized or understood by employees as it should be?",
-  "Beyond SpaceX employee benefits for retirement savings, are there other types of benefits offered by the company that you find valuable to discuss with your clients (e.g. stock, education savings, health savings)?",
-  "For SpaceX employees thinking about leaving the company to accept a job elsewhere, what actions do you recommend they take before resigning and shortly thereafter?",
-  "For SpaceX employees approaching retirement age, how do you recommend they prepare to make the transition from living off their salary to relying upon other sources of income?",
-  "For SpaceX employees who have managed their finances on their own to this point, what would you suggest they consider to help them decide if they should begin working with a financial advisor at this stage in their lives?",
-  "What are some of the unique financial planning challenges you commonly see among your clients who are SpaceX employees and how do you help them overcome these obstacles?",
-  "What questions do you recommend SpaceX employees ask financial advisors they're considering hiring to help them decide if they're a good fit?",
-  "Is there anything that comes up frequently in your initial meeting with SpaceX employees that surprises you?",
-  "For highly compensated SpaceX employees and executives, are there any special benefits you believe it's important to take into consideration when preparing their financial plan?",
-  "Is there a particularly memorable experience or a moment you recall with a client who worked at SpaceX when you realized they have unique opportunities and circumstances when it comes to their financial planning needs?",
+  "As a financial advisor with experience helping COMPANY employees save for their retirement, how do you help them make the most of their employee benefits?",
+  "When you first speak with a COMPANY employee, what questions do you like to ask to better understand their unique circumstances and determine how you can best help them achieve their goals?",
+  "Is there a particular benefit available to COMPANY employees you feel isn't as well utilized or understood by employees as it should be?",
+  "Beyond COMPANY employee benefits for retirement savings, are there other types of benefits offered by the company that you find valuable to discuss with your clients (e.g. stock, education savings, health savings)?",
+  "For COMPANY employees thinking about leaving the company to accept a job elsewhere, what actions do you recommend they take before resigning and shortly thereafter?",
+  "For COMPANY employees approaching retirement age, how do you recommend they prepare to make the transition from living off their salary to relying upon other sources of income?",
+  "For COMPANY employees who have managed their finances on their own to this point, what would you suggest they consider to help them decide if they should begin working with a financial advisor at this stage in their lives?",
+  "What are some of the unique financial planning challenges you commonly see among your clients who are COMPANY employees and how do you help them overcome these obstacles?",
+  "What questions do you recommend COMPANY employees ask financial advisors they're considering hiring to help them decide if they're a good fit?",
+  "Is there anything that comes up frequently in your initial meeting with COMPANY employees that surprises you?",
+  "For highly compensated COMPANY employees and executives, are there any special benefits you believe it's important to take into consideration when preparing their financial plan?",
+  "Is there a particularly memorable experience or a moment you recall with a client who worked at COMPANY when you realized they have unique opportunities and circumstances when it comes to their financial planning needs?",
 ];
 
 const FALLBACK_CUSTOM = [
-  "SpaceX employees often hold equity in a company whose stock isn't publicly traded — how do you help them think through the considerations and risks of concentrated private-company equity?",
-  "Many SpaceX employees relocate to work at facilities like Starbase in Texas or Hawthorne in California — how do you help them navigate the financial and tax implications of relocating for their role?",
+  "Many employees hold equity or stock-based compensation as part of their pay — how do you help them think through the considerations and risks of a concentrated position in their employer's stock?",
+  "Some employees relocate to work at their employer's facilities in another state — how do you help them navigate the financial and tax implications of relocating for their role?",
 ];
 
 /* ============================================================
@@ -820,12 +820,12 @@ export default function App() {
             <h2 className="wt-sech2 wt-serif">Anything you'd add in your own words?</h2>
             <p className="wt-sectext">
               You've answered the questions we prepared — thank you. If there's a question your {cfg.entity}
-              clients often ask that we didn't cover, this is the place to add it. Completely optional.
+               clients often ask that we didn't cover, this is the place to add it. Completely optional.
             </p>
             {proposed.map((p, i) => (
               <div className="wt-propcard" key={p.id}>
                 <p className="wt-fieldlabel">Your question {proposed.length > 1 ? `#${i + 1}` : ""}</p>
-                <input className="wt-input" placeholder="e.g. How should new SpaceX hires think about their first equity grant?"
+                <input className="wt-input" placeholder="e.g. How should new hires think about their first equity grant?"
                   value={p.q} onChange={(e) => setProposed((arr) => arr.map((x) => x.id === p.id ? { ...x, q: e.target.value } : x))} />
                 <p className="wt-fieldlabel">Your answer</p>
                 <RichInput key={p.id} value={p.a} minHeight={90}
